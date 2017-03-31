@@ -1,0 +1,187 @@
+修改你的数据
+------------------------------------------------------------------------------
+Elasticsearch提供了近乎实时的数据操作和搜索功能。
+默认情况下，从你索引/更新/删除你的数据动作开始到它出现在你的搜索结果中，大概会有1秒钟的延迟。
+这和其它类似SQL的平台不同，数据在一个事务完成之后就会立即可用。
+
+索引/替换文档
+	我们先前看到，怎样索引一个文档。现在我们再次调用那个命令：
+	curl -XPUT 'localhost:9200/customer/external/1?pretty' -d '{"name": "John Doe"}'
+	再次，以上的命令将会把这个文档索引到customer索引、external类型中，其ID是1。
+	如果我们对一个不同（或相同）的文档应用以上的命令，Elasticsearch将会用一个新的文档来替换（重新索引）当前ID为1的那个文档。
+	curl -XPUT 'localhost:9200/customer/external/1?pretty' -d '{"name": "Jane Doe"}'
+	以上的命令将ID为1的文档的name字段的值从“John Doe”改成了“Jane Doe”。
+
+	如果我们使用一个不同的ID，一个新的文档将会被索引，当前已经在索引中的文档不会受到影响。
+	curl -XPUT 'localhost:9200/customer/external/2?pretty' -d '{"name": "Jane Doe"}'
+	以上的命令，将会索引一个ID为2的新文档。
+
+	在索引的时候，ID部分是可选的。如果不指定，Elasticsearch将产生一个随机的ID来索引这个文档。
+	Elasticsearch生成的ID会作为索引API调用的一部分被返回。
+	以下的例子展示了怎样在没有指定ID的情况下来索引一个文档：
+	curl -XPOST 'localhost:9200/customer/external?pretty' -d '{"name": "Jane Doe"}'
+	注意，在上面的情形中，由于我们没有指定一个ID，我们使用的是POST而不是PUT。
+
+
+更新文档
+	除了可以索引、替换文档之外，我们也可以更新一个文档。但要注意，Elasticsearch底层并不支持原地更新。
+	在我们想要做一次更新的时候，Elasticsearch先删除旧文档，然后在索引一个更新过的新文档。
+	下面的例子展示了怎样将我们ID为1的文档的name字段改成“Jane Doe”：
+	curl -XPOST 'localhost:9200/customer/external/1/_update?pretty' -d '{"doc": { "name": "Jane Doe" }}'
+	下面的例子展示了怎样将我们ID为1的文档的name字段改成“Jane Doe”的同时，给它加上age字段：
+	curl -XPOST 'localhost:9200/customer/external/1/_update?pretty' -d '{"doc": { "name": "Jane Doe", "age": 20 }}'
+	更新也可以通过使用简单的脚本来进行。这个例子使用一个脚本将age加5：
+	curl -XPOST 'localhost:9200/customer/external/1/_update?pretty' -d '{"script" : "ctx._source.age += 5"}'
+	        
+	在上面的例子中，ctx._source指向当前要被更新的文档。
+	注意，在写作本文时，更新操作只能一次应用在一个文档上。
+	将来，Elasticsearch将提供同时更新符合指定查询条件的多个文档的功能（类似于SQL的UPDATE-WHERE语句）。
+    
+删除文档
+	删除文档是相当直观的。以下的例子展示了我们怎样删除ID为2的文档：
+	curl -XDELETE 'localhost:9200/customer/external/2?pretty'
+	我们也能够一次删除符合某个查询条件的多个文档。以下的例子展示了如何删除名字中包含“John”的所有的客户：
+	curl -XDELETE 'localhost:9200/customer/external/_query?pretty' -d '{"query": { "match": { "name": "John" } }}'
+	注意，以上的URI变成了/_query，以此来表明这是一个“查询删除”API，其中删除查询标准放在请求体中，但是我们仍然使用DELETE。
+	现在先不要担心查询语法，我们将会在本教程后面的部分中涉及。
+
+
+
+批处理：
+	除了能够对单个的文档进行索引、更新和删除之外，Elasticsearch也提供了以上操作的批量处理功能，这是通过使用_bulk API实现的。
+	这个功能之所以重要，在于它提供了非常高效的机制来尽可能快的完成多个操作，与此同时使用尽可能少的网络往返。
+	作为一个快速的例子，以下调用在一次bulk操作中索引了两个文档（ID 1 - John Doe and ID 2 - Jane Doe）:
+	curl -XPOST 'localhost:9200/customer/external/_bulk?pretty' -d '
+        {"index":{"_id":"1"}}{"name": "John Doe" }
+        {"index":{"_id":"2"}}{"name": "Jane Doe" }'
+        
+    以下例子在一个bulk操作中，首先更新第一个文档（ID为1），然后删除第二个文档（ID为2）：
+    
+        curl -XPOST 'localhost:9200/customer/external/_bulk?pretty' -d '
+        {"update":{"_id":"1"}}
+        {"doc": { "name": "John Doe becomes Jane Doe" } }
+        {"delete":{"_id":"2"}}'
+        
+	注意上面的delete动作，由于删除动作只需要被删除文档的ID，所以并没有对应的源文档。
+	bulk API按顺序执行这些动作。如果其中一个动作因为某些原因失败了，将会继续处理它后面的动作。
+	当bulk API返回时，它将提供每个动作的状态（按照同样的顺序），所以你能够看到某个动作成功与否。
+
+
+探索你的数据
+------------------------------------------------------------------------------
+样本数据集
+	现在我们对于基本的东西已经有了一些感觉，现在让我们尝试使用一些更加贴近现实的数据集。
+	我已经准备了一些假想的客户的银行账户信息的JSON文档的样本。文档具有以下的模式（schema）：
+            {
+                "account_number": 0,
+                "balance": 16623,
+                "firstname": "Bradshaw",
+                "lastname": "Mckenzie",
+                "age": 29,
+                "gender": "F",
+                "address": "244 Columbus Place",
+                "employer": "Euron",
+                "email": "bradshawmckenzie@euron.com",
+                "city": "Hobucken",
+                "state": "CO"
+            }
+我是在http://www.json-generator.com/上生成这些数据的。
+
+载入样本数据
+	你可以从https://github.com/bly2k/files/blob/master/accounts.zip?raw=true下载这个样本数据集。
+	将其解压到当前目录下，如下，将其加载到我们的集群里：
+		curl -XPOST 'localhost:9200/bank/account/_bulk?pretty' --data-binary @accounts.json
+		curl 'localhost:9200/_cat/indices?v'
+	响应是：
+            curl 'localhost:9200/_cat/indices?v'
+            health index pri rep docs.count docs.deleted store.size pri.store.size
+            yellow bank    5   1       1000            0    424.4kb        424.4kb
+	这意味着我们成功批量索引了1000个文档到银行索引中（account类型）。
+
+搜索API
+------------------------------------------------------------------------------
+现在，让我们以一些简单的搜索来开始。有两种基本的方式来运行搜索：
+一种是在REST请求的URI中发送搜索参数，另一种是将搜索参数发送到REST请求体中。
+请求体方法的表达能力更好，并且你可以使用更加可读的JSON格式来定义搜索。
+我们将尝试使用一次请求URI作为例子，但是教程的后面部分，我们将仅仅使用请求体方法。
+        
+搜索的REST　API可以通过_search端点来访问。下面这个例子返回bank索引中的所有的文档：
+	curl 'localhost:9200/bank/_search?q=*&pretty'
+	我们仔细研究一下这个查询调用。我们在bank索引中搜索（_search端点），并且q=*参数指示Elasticsearch去匹配这个索引中所有的文档。
+	pretty参数，和以前一样，仅仅是告诉Elasticsearch返回美观的JSON结果。
+	以下是响应（部分列出）：
+            curl 'localhost:9200/bank/_search?q=*&pretty'
+            {
+              "took" : 63,
+              "timed_out" : false,
+              "_shards" : {
+                "total" : 5,
+                "successful" : 5,
+                "failed" : 0
+              },
+              "hits" : {
+                "total" : 1000,
+                "max_score" : 1.0,
+                "hits" : [ {
+                  "_index" : "bank",
+                  "_type" : "account",
+                  "_id" : "1",
+                  "_score" : 1.0, "_source" : {"account_number":1,"balance":39225,"firstname":"Amber","lastname":"Duke","age":32,"gender":"M","address":"880 Holmes Lane","employer":"Pyrami","email":"amberduke@pyrami.com","city":"Brogan","state":"IL"}
+                }, {
+                  "_index" : "bank",
+                  "_type" : "account",
+                  "_id" : "6",
+                  "_score" : 1.0, "_source" : {"account_number":6,"balance":5686,"firstname":"Hattie","lastname":"Bond","age":36,"gender":"M","address":"671 Bristol Street","employer":"Netagy","email":"hattiebond@netagy.com","city":"Dante","state":"TN"}
+                }, {
+                  "_index" : "bank",
+                  "_type" : "account",
+                  
+	对于这个响应，我们看到了以下的部分：
+		- took —— Elasticsearch执行这个搜索的耗时，以毫秒为单位
+		- timed_out —— 指明这个搜索是否超时
+		- _shards —— 指出多少个分片被搜索了，同时也指出了成功/失败的被搜索的shards的数量
+		- hits —— 搜索结果
+		- hits.total —— 能够匹配我们查询标准的文档的总数目
+		- hits.hits —— 真正的搜索结果数据（默认只显示前10个文档）
+		- _score和max_score —— 现在先忽略这些字段
+	使用请求体方法的等价搜索是：
+            curl -XPOST 'localhost:9200/bank/_search?pretty' -d '
+            {
+              "query": { "match_all": {} }
+            }'
+            
+	这里的不同之处在于，并不是向URI中传递q=*，取而代之的是，我们在_search API的请求体中POST了一个JSON格式请求体。
+	我们将在下一部分中讨论这个JSON查询。
+	响应是：
+            curl -XPOST 'localhost:9200/bank/_search?pretty' -d '
+            {
+              "query": { "match_all": {} }
+            }'
+            {
+              "took" : 26,
+              "timed_out" : false,
+              "_shards" : {
+                "total" : 5,
+                "successful" : 5,
+                "failed" : 0
+              },
+              "hits" : {
+                "total" : 1000,
+                "max_score" : 1.0,
+                "hits" : [ {
+                  "_index" : "bank",
+                  "_type" : "account",
+                  "_id" : "1",
+                  "_score" : 1.0, "_source" : {"account_number":1,"balance":39225,"firstname":"Amber","lastname":"Duke","age":32,"gender":"M","address":"880 Holmes Lane","employer":"Pyrami","email":"amberduke@pyrami.com","city":"Brogan","state":"IL"}
+                }, {
+                  "_index" : "bank",
+                  "_type" : "account",
+                  "_id" : "6",
+                  "_score" : 1.0, "_source" : {"account_number":6,"balance":5686,"firstname":"Hattie","lastname":"Bond","age":36,"gender":"M","address":"671 Bristol Street","employer":"Netagy","email":"hattiebond@netagy.com","city":"Dante","state":"TN"}
+                }, {
+                  "_index" : "bank",
+                  "_type" : "account",
+                  "_id" : "13",
+	有一点需要重点理解一下，一旦你取回了你的搜索结果，Elasticsearch就完成了使命，它不会维护任何服务器端的资源或者在你的结果中打开游标。
+	这是和其它类似SQL的平台的一个鲜明的对比， 在那些平台上，你可以在前面先获取你查询结果的一部分，然后如果你想获取结果的剩余部分，
+	你必须继续返回服务端去取，这个过程使用一种有状态的服务器端游标技术。

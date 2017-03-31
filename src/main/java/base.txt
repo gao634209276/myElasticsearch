@@ -1,0 +1,168 @@
+一、下载与安装
+	Elasticsearch 依赖 Java,在安装 ES 之前首先要配好 java,Elasticsearch要求jdk最低版本为1.7。
+	https://www.elastic.co/downloads/elasticsearch
+	tar -zxvf elasticsearch-2.3.3.tar.gz
+
+二、运行ElasticSearch
+	启动ElasticSearch命令：
+	./elasticsearch-2.3.3/bin/elasticsearch
+	注意一下有 http 标记的那一行,它提供了有关 HTTP 地址(127.0.0.1)和 端口(9200)的信息,
+	通过这个地址和端口我们就可以访问我们的节点了。
+	默认情况下, Elasticsearch 使用 9200 来提供对其 REST API 的访问。
+	访问http://127.0.0.1:9200/,浏览器会输出如下信息：
+		{
+		  "name" : "Obliterator",
+		  "cluster_name" : "elasticsearch",
+		  "version" : {
+			"number" : "2.3.3",
+			"build_hash" : "218bdf10790eef486ff2c41a3df5cfa32dadcfde",
+			"build_timestamp" : "2016-05-17T15:40:04Z",
+			"build_snapshot" : false,
+			"lucene_version" : "5.5.0"
+		  },
+		  "tagline" : "You Know, for Search"
+		}
+
+三、关闭ElasticSearch
+需要对ES节点进行重新启动或正常关机的时候，有三种方法可以关闭ES：
+		在控制台中,使用CTRL+C组合键.
+		通过发送TERM信号终止服务器进程.
+		使用REST APIcurl -XPOST 'http://localhost:9200/_shutdown'.
+
+四、插件安装
+4.1安装head 插件
+	安装命令：
+		./elasticsearch-2.3.3/bin/plugin install mobz/elasticsearch-head
+	安装好后,在浏览器输入地址:http://localhost:9200/_plugin/head/ 即可调用 head 插件 查看集群状态、节点信息、做查询等等。
+4.2安装IK分词器
+	(a).首先使用Git clone命令下载IK分词器源码
+		git clone https://github.com/medcl/elasticsearch-analysis-ik.git
+	也可以直接访问github地址(https://github.com/medcl/elasticsearch-analysis-ik)
+	点击右侧Clone or download按钮，然后Download ZIP直接下载.
+	(b.)解压下载的elasticsearch-analysis-ik-master.zip.
+		unzip elasticsearch-analysis-ik-master.zip
+	(c.)使用maven打包
+	确保系统已经安装maven,使用mvn -version命令查看是否已经安装maven.如果没有安装，可以根据系统选择安装方法，比如mac OS系统可以使用brew install maven命令完成安装.
+	进入ik分词器的下载目录，运行命令：
+		mvn package
+	打包完成以后可以看到根目录下多出一个target文件夹.
+	(d.) 配置Ik插件
+	在elasticsearch-2.3.3/plugins/目录下新建名为ik的文件夹.把elasticsearch-analysis-ik-master/target/releases
+	/elasticsearch-analysis-ik-1.9.3.zip解压，把解压后的所有文件拷贝到elasticsearch-2.3.3/plugins/ik/目录下.
+	重新启动es,如果配置正确，不会有异常信息输出。
+	(e.)ik 分词测试
+	1.首先创建一个索引用于测试：
+		curl -XPUT localhost:9200/index
+	2.为索引index创建mapping:
+		curl -XPOST http://localhost:9200/index/fulltext/_mapping -d'
+		{
+			"fulltext": {
+					 "_all": {
+					"analyzer": "ik"
+				},
+				"properties": {
+					"content": {
+						"type" : "string",
+						"boost" : 8.0,
+						"term_vector" : "with_positions_offsets",
+						"analyzer" : "ik",
+						"include_in_all" : true
+					}
+				}
+			}
+		}'
+	3.测试：
+		curl 'http://localhost:9200/index/_analyze?analyzer=ik&pretty=true' -d '
+		{
+		"text":"中国有13亿人口"
+		}'
+	显示结果如下：
+		{
+		  "tokens" : [ {
+			"token" : "中国",
+			"start_offset" : 0,
+			"end_offset" : 2,
+			"type" : "CN_WORD",
+			"position" : 0
+		  }, {
+			"token" : "国有",
+			"start_offset" : 1,
+			"end_offset" : 3,
+			"type" : "CN_WORD",
+			"position" : 1
+		  }, {
+			"token" : "13",
+			"start_offset" : 3,
+			"end_offset" : 5,
+			"type" : "ARABIC",
+			"position" : 2
+		  }, {
+			"token" : "亿",
+			"start_offset" : 5,
+			"end_offset" : 6,
+			"type" : "CN_WORD",
+			"position" : 3
+		  }, {
+			"token" : "人口",
+			"start_offset" : 6,
+			"end_offset" : 8,
+			"type" : "CN_WORD",
+			"position" : 4
+		  } ]
+		}
+
+五、文档的CRUD
+5.1索引、类型、文档、字段
+	索引是ElasticSearch存放数据的地方，可以理解为关系型数据库中的一个数据库。
+	类型用于区分同一个索引下不同的数据类型,相当于关系型数据库中的表
+	文档是ElasticSearch中存储的实体，类比关系型数据库，每个文档相当于数据库表中的一行数据。
+	文档由字段组成，相当于关系数据库中列的属性，不同的是ES的不同文档可以具有不同的字段集合。
+	对比关系型数据库：
+	Relational DB -> Databases -> Tables -> Rows -> Columns
+	Elasticsearch -> Indices   -> Types  -> Documents -> Fields
+
+5.2 创建文档
+	以博客内容管理为例,索引名为blog,类型为article，新加一个文档：
+	curl -XPUT http://localhost:9200/blog/article/1 -d '
+	{
+		  "id": "1",
+		  "title": "New version of Elasticsearch released!",
+		  "content": "Version 1.0 released today!",
+		  "priority": 10,
+		  "tags": ["announce", "elasticsearch", "release"]
+	}'
+
+5.3检索文档
+	http://localhost:9200/blog/article/1?pretty
+
+5.4更新文档
+	curl -XPOST http://localhost:9200/blog/article/1/_update -d '{
+	  "script": "ctx._source.content = \"new content\""
+	}'
+
+5.5删除文档
+	curl -XDELETE http://localhost:9200/blog/article/1
+
+六、相关概念
+
+6.1节点与集群
+	ElasticSearch是一个分布式全文搜索引擎,既可以做为一个独立的搜索服务器工作，也可以使用多台服务器同时运行，
+	这样就构成了一个集群(cluster),集群的每一个服务器称为一个节点(node).
+6.2分片
+	当数据量比较大的时候,受RAM、硬盘容量的限制，同时一个节点的计算能力有限。
+	可以将数据切分，每部分是一个单独的lucene索引，成为分片(shard)。
+	每个分片可以被存储在集群的不同节点上。
+	当需要查询由多个分片构成的索引时，ElasticSearch将查询发送到每个相关的分片，之后将查询结果合并。
+	过程对应用透明，无须知道分片的存在。
+6.3副本
+	副本是对原始分片的一个精确拷贝，原始分片成为主分片。
+	对索引的所有操作都直接作用在主分片上，每个主分片可以有零个或多个副分片。
+	主分片丢失，集群可以将一个副分片提升为主的新分片。
+
+
+
+
+
+
+
+

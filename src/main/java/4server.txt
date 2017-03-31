@@ -1,0 +1,94 @@
+elasticsearch源码分析之服务端（四）
+上篇博客说明了客户端的情况，现在继续分析服务端都干了些啥，es是怎么把数据插进去的，
+此处以transport的bulk为入口来探究，对于单个document的发送就忽略了。
+
+一、服务端接收
+1.1接收消息
+在客户端分析中已经提到，netty中通信的处理类是MessageChannelHandler，其中messageReceived方法用来处理消息。
+1.1.1解析数据流
+See:MessageChannelHandler.messageReceived()
+
+	ChannelBuffer buffer = (ChannelBuffer) m;
+	int size = buffer.getInt(buffer.readerIndex() - 4);
+	transportServiceAdapter.received(size + 6);
+
+	// we have additional bytes to read, outside of the header
+	boolean hasMessageBytesToRead = (size - (NettyHeader.HEADER_SIZE - 6)) != 0;
+
+	int markedReaderIndex = buffer.readerIndex();
+	int expectedIndexReader = markedReaderIndex + size;
+
+	// netty always copies a buffer, either in NioWorker in its read handler, where it copies to a fresh
+	// buffer, or in the cumlation buffer, which is cleaned each time
+	StreamInput streamIn = ChannelBufferStreamInputFactory.create(buffer, size);
+	boolean success = false;
+	try {
+		long requestId = streamIn.readLong();
+		byte status = streamIn.readByte();
+		Version version = Version.fromId(streamIn.readInt());
+
+		if (TransportStatus.isCompress(status) && hasMessageBytesToRead && buffer.readable()) {
+			Compressor compressor = CompressorFactory.compressor(buffer);
+			streamIn = compressor.streamInput(streamIn);
+		}
+		streamIn.setVersion(version);
+
+		if (TransportStatus.isRequest(status)) {
+			String action = handleRequest(ctx.getChannel(), streamIn, requestId, version);
+1.1.2调用handleRequest,此处读取出来action，跟不同的action生成具体的TransportRequest子类和不同的HandledTransportAction。
+		buffer = new NamedWriteableAwareStreamInput(buffer, transport.namedWriteableRegistry);
+		final String action = buffer.readString();
+		//...
+		final RequestHandlerRegistry reg = transportServiceAdapter.getRequestHandler(action);
+		//...
+		reg.processMessageReceived(request, transportChannel);
+	最终执行到了TransportBulkAction类的doExecute方法，处理bulkRequest。
+	UML see:http://blog.csdn.net/thomas0yang/article/details/52253165
+	server端接收message，解析协议，根据action生成不同request和transportAction，进而执行transportAction.execute(request,listener)。
+	此处的结构会有很多具体的TransportAction类实现了HandeldTransportAction，实现了不同的响应接口。
+
+二、服务端处理
+2.1索引的处理
+2.1.1索引分类处理
+根据上面的分析，bulk的处理执行到TransportBulkAction类的doExecute()，代码如下：
+	if (autoCreateIndex.needToCheck()) {
+		// Keep track of all unique indices and all unique types per index for the create index requests:
+		final Map<String, Set<String>> indicesAndTypes = new HashMap<>();
+		for (ActionRequest request : bulkRequest.requests) {
+			if (request instanceof DocumentRequest) {
+				DocumentRequest req = (DocumentRequest) request;
+				Set<String> types = indicesAndTypes.get(req.index());
+				if (types == null) {
+					indicesAndTypes.put(req.index(), types = new HashSet<>());
+				}
+				types.add(req.type());
+			}
+		final AtomicInteger counter = new AtomicInteger(indicesAndTypes.size());
+		ClusterState state = clusterService.state();
+		for (Map.Entry<String, Set<String>> entry : indicesAndTypes.entrySet()) {
+			final String index = entry.getKey();
+			if (autoCreateIndex.shouldAutoCreate(index, state)) {
+				CreateIndexRequest createIndexRequest = new CreateIndexRequest(bulkRequest);
+				createIndexRequest.index(index);
+				for (String type : entry.getValue()) {
+					createIndexRequest.mapping(type);
+				}
+				createIndexRequest.cause("auto(bulk api)");
+				createIndexRequest.masterNodeTimeout(bulkRequest.timeout());
+				createIndexAction.execute(createIndexRequest, new ActionListener<CreateIndexResponse>() {
+					public void onResponse(CreateIndexResponse result) {...}
+					public void onFailure(Throwable e) {...});
+			} else {
+				if (counter.decrementAndGet() == 0) {
+					executeBulk(bulkRequest, startTime, listener, responses);
+				}
+	此处会分析bulkRequest中的所有请求中的index和type，生成 Map<String, Set<String>> indicesAndTypes，
+	然后遍历indicesAndTypes，分index执行不同的bulk。
+
+2.1.2生成_id
+	遍历所有的request，对其做一些加工，主要包括：
+	获取routing(如果mapping里有的话)、指定的timestamp(如果没有带timestamp会使用当前时间)，
+	如果没有指定id字段，在action.bulk.action.allow_id_generation配置为true的情况下，会自动生成一个base64UUID作为id字段。
+
+
+

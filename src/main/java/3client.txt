@@ -1,0 +1,180 @@
+elasticsearch源码分析之客户端（三）
+与es通信有三种protocol分别是node、http和transport；
+其实对于其他client而言最终都是使用的http；
+而Java是可以使用node和transport的，node方式一般很少用，此处我们只讨论transport client，采用bulk方式。
+	See: TransportClient.Builder.build()方法
+
+1.1生成settings对象
+	代码很容易看懂，初始化了一些基本信息，生成settings对象
+
+1.2初始化客户端
+	client.build方法中，接收了settings参数，初始化了一些服务，截图如下：
+		Injector injector = modules.createInjector();
+		final TransportService transportService = injector.getInstance(TransportService.class);
+		transportService.start();
+		transportService.acceptIncomingRequests();
+
+		TransportClient transportClient = new TransportClient(injector);
+		success = true;
+		return transportClient;
+	1.2.1初始化的逻辑有点类似于ES启动过程，也是用过Guice来依赖注入的，添加了一些有用的模块。
+	Guice是一个轻量级的DI框架，入门链接：http://blog.csdn.net/derekjiang/article/details/7231490#t5
+	1.2.2在标注红线的地方启动了TransportService服务，因为是guice，所以我们查询TransportModule的config方法，
+	See: TransportModule.config()
+		bind(TransportService.class).to(transportServices.get(typeName)).asEagerSingleton();
+
+	其中transports的初试化在构造方法中，可以通过node.mode参数来配置，
+	默认我们使用的实现类是NettyTransport，用来是服务端通信，细节暂且不表。N
+	etty是NIO的一个框架，es的所有通信都是基于netty的。
+	transport模块是es通信的基础模块，在elasticsearch中用的很广泛，
+	比如集群node之间的通信、数据的传输、transport client方式的数据发送等等,
+	只要数和通信、数据传输相关的都离不开transport模块的作用。
+		public TransportModule(Settings settings, NamedWriteableRegistry namedWriteableRegistry) {
+			this.settings = settings;
+			this.logger = Loggers.getLogger(getClass(), settings);
+			addTransport(LOCAL_TRANSPORT, LocalTransport.class);
+			addTransport(NETTY_TRANSPORT, NettyTransport.class);
+			this.namedWriteableRegistry = namedWriteableRegistry;
+		}
+	1.2.3在1.2中新建对象TransportClient，跟进查看构造方法
+		private TransportClient(Injector injector) {
+			super(injector.getInstance(Settings.class), injector.getInstance(ThreadPool.class), injector.getInstance(Headers.class));
+			this.injector = injector;
+			nodesService = injector.getInstance(TransportClientNodesService.class);
+			proxy = injector.getInstance(TransportProxyClient.class);
+		}
+	对于client的一些调用其实最后都追溯到了TransportClientNodesService中，这个service负责客户端和服务端的连接。后面会在讲述。
+
+1.3添加address
+	初始化代码中client.addTransportAddress()方法，深入看就是调用TransportClientNodesService.addTransportAddresses()方法。
+	在TransportClientNodesService中维护了三个node list：
+		// nodes that are added to be discovered
+		// listedNodes：client初始化时addTransportAddress配置的node；
+		private volatile List<DiscoveryNode> listedNodes = Collections.emptyList();
+		// nodes：和服务端建立的node；
+		private volatile List<DiscoveryNode> nodes = Collections.emptyList();
+		// filteredNodes：没有建立连接的node；
+		private volatile List<DiscoveryNode> filteredNodes = Collections.emptyList();
+	这时就会往listedNodes中添加配置的node，之后会调用nodesSampler.sample(),补充nodes和filteredNodes。
+			if (!found) {
+				filtered.add(transportAddress);
+			}
+		 	builder.addAll(listedNodes());
+		 	listedNodes = Collections.unmodifiableList(builder);
+			nodesSampler.sample();
+	//（老版本）这里补充一下nodesSampler实例会根据client.transport.sniff的配置来决定使用哪种方式，
+	目前根据内部抽象类的两种实现，根据java类型判断自动调用对应的实现方式。
+	分别是SniffNodesSampler和SimpleNodeSampler；
+
+	我们先来看看SniffNodesSampler，这意味着client会主动发现集群里的其他节点；
+	在sample中client会去ping listedNodes和nodes中所有节点，默认ping的interval为5s；
+	如果ping的node在nodes list里面，意味着是要真正建立连接的node，则创建fully connct；
+	如果不在则创建light connect。(这里的light是指只创建ping连接，fully则会创建所有连接，参见netty中的)。
+	然后对这些node发送一个获取其state的请求，获取集群所有的dataNodes，对这些nodes经过再次确认后就放入nodes中。
+	code：
+		// if its one of the actual nodes we will talk to, not to listed nodes, fully connect
+		if (nodes.contains(listedNode)) {
+			logger.trace("connecting to cluster node [{}]", listedNode);
+			transportService.connectToNode(listedNode);
+		} else {
+			// its a listed node, light connect to it...
+			logger.trace("connecting to listed node (light) [{}]", listedNode);
+			transportService.connectToNodeLight(listedNode);
+		}
+		 transportService.sendRequest(listedNode, ClusterStateAction.NAME,
+				headers.applyTo(Requests.clusterStateRequest().clear().nodes(true).local(true)),
+				TransportRequestOptions.builder().withType(TransportRequestOptions.Type.STATE).withTimeout(pingTimeout).build(),
+				new BaseTransportResponseHandler<ClusterStateResponse>(){...});
+
+	再来看看SimpleNodeSampler，同样是ping listedNodes中的所有node，
+	区别在于这里创建的都是light connect，此出会建立相应的netty链接。
+	对这些node发送一个TransportLivenessAction的请求，这个请求会返回一个自发现的node info，把这个返回结果中真实的node加入nodes，
+	如果返回时空，仍然会加入nodes，因为可能目标node还没有完成初始化还获取不到信息。
+	code:
+		transportService.connectToNodeLight(listedNode);
+		LivenessResponse livenessResponse = transportService.submitRequest(listedNode, TransportLivenessAction.NAME,
+			headers.applyTo(new LivenessRequest()),
+			TransportRequestOptions.builder().withType(TransportRequestOptions.Type.STATE).withTimeout(pingTimeout).build(),
+			new FutureTransportResponseHandler<LivenessResponse>() {...});
+
+	可以看到两者的最大不同之处在于nodes列表里面的node，
+	也就是SimpleNodeSampler让集群中的某些个配置的节点，专门用于接受用户请求。
+	SniffNodesSampler的话，所有节点都会参与负载。
+
+--------------------------------------------------------------------------------------
+二、客户端请求
+2.1client.bulk请求
+2.1.1在初始化时已经和服务端建立了链接，执行client.bulk()方法。
+	See: AbstractClient.bulk()
+		@Override
+		public ActionFuture<BulkResponse> bulk(final BulkRequest request) {
+			return execute(BulkAction.INSTANCE, request);
+		}
+2.1.2此时会最终会调用client的doExecute方法
+    @Override
+    protected <Request extends ActionRequest, Response extends ActionResponse,
+    	RequestBuilder extends ActionRequestBuilder<Request, Response, RequestBuilder>>
+    	void doExecute(
+    		Action<Request, Response, RequestBuilder> action, Request request,
+    			ActionListener<Response> listener) {
+        proxy.execute(action, request, listener);
+    }
+	proxy的示例是TransportProxyClient，其中包含了变量ImmutableMap<Action, TransportActionNodeProxy> proxies，
+	不同的请求生成不同的TransportActionNodeProxy。
+
+2.1.3在进入proxy.execute方法
+	public <Request extends ActionRequest, Response extends ActionResponse,
+		RequestBuilder extends ActionRequestBuilder<Request, Response, RequestBuilder>>
+		void execute(
+			final Action<Request, Response, RequestBuilder> action, final Request request,
+			ActionListener<Response> listener) {
+		final TransportActionNodeProxy<Request, Response> proxy = proxies.get(action);
+		nodesService.execute(new TransportClientNodesService.NodeListenerCallback<Response>() {
+			@Override
+			public void doWithNode(DiscoveryNode node, ActionListener<Response> listener) {
+				proxy.execute(node, request, listener);
+			}
+		}, listener);
+	}
+
+	2.1.3.1此时的nodesService就是上面提到的TransportClientNodesService（其中包含nodes集群的信息），其execute方法如下：
+		public <Response> void execute(NodeListenerCallback<Response> callback, ActionListener<Response> listener) {
+			List<DiscoveryNode> nodes = this.nodes;
+			ensureNodesAreAvailable(nodes);
+			int index = getNodeNumber();
+			RetryListener<Response> retryListener = new RetryListener<>(callback, listener, nodes, index);
+			DiscoveryNode node = nodes.get((index) % nodes.size());
+			try {
+				callback.doWithNode(node, retryListener);
+			} catch (Throwable t) {
+				//this exception can't come from the TransportService as it doesn't throw exception at all
+				listener.onFailure(t);
+			}
+		}
+		其实关键的就一句话DiscoveryNode node = nodes.get((index) % nodes.size());
+		通过Round robin来生成发送的node，以达到负载均衡的效果。
+
+	2.1.3.2上文中的proxy(2.1.3中的)则根据不同的action，生成不同的TransportActionNodeProxy，执行execute方法。
+		public void execute(final DiscoveryNode node, final Request request, final ActionListener<Response> listener) {
+			ActionRequestValidationException validationException = request.validate();
+			if (validationException != null) {
+				listener.onFailure(validationException);
+				return;
+			}
+			transportService.sendRequest(node, action.name(), request, transportOptions, new ActionListenerResponseHandler<Response>(listener) {
+				@Override
+				public Response newInstance() {
+					return action.newResponse();
+				}
+			});
+		}
+	此时的transportService.sendRequest最终会调用nettyTransport.sendRequest()方法，对request进行处理（压缩、版本等），最后发送数据到服务端。
+
+2.1.4补充一点，在netty中通信的处理类是MessageChannelHandler，其中messageReceived方法用来处理消息，
+根据不同的状态来调用handleResponse或者handleRequest。
+所以，这个方法是服务端接收请求的入口。
+	channelPipeline.addLast("dispatcher",new MessageChannelHandler(nettyTransport,nettpTransport.logger.".client"));
+	return channelPipeline;
+
+See:
+http://blog.csdn.net/thomas0yang/article/details/52189215

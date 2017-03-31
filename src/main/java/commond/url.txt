@@ -1,0 +1,152 @@
+1.curl192.168.106.58:9200/_cat/health?v
+ 集群健康查看
+
+epoch      timestamp cluster       status node.total node.data shards pri relo init unassign 
+1400639131 10:25:31  elasticsearch green           1         1     18  18    0    0        0
+2. curl 192.168.106.58:9200/_cat/nodes?v 节点健康查看
+host    ip             heap.percent ram.percent load node.role master name   
+wendah1 192.168.106.58           55          59 6.65 d         *      Primus 
+3.curl 192.168.106.58:9200/_cat/indices?v  列出集群索引
+health index        pri rep docs.count docs.deleted store.size pri.store.size 
+green  autoindex      6   0    1800000            0    854.4mb        854.4mb 
+green  autoindex111   6   0    1400000            0    864.4mb        864.4mb 
+green  product        6   0    3000000            0      1.2gb          1.2gb 
+4.curl -XPUT 192.168.106.58:9200/customer?pretty 创建customer索引 pretty表示打印json响应 
+
+{
+  "acknowledged" : true
+}
+5.curl -XPUT 192.168.106.58:9200/customer/external/1?pretty '-d { "name":"JOhn Doe"}' 索引数据
+6.curl -XGET 192.168.106.58:9200/customer/external/1?pretty get查询数据
+7. curl -XDELETE 192.168.106.58:9200/customer?pretty 删除索引
+8.curl -XPUT 192.168.106.58:9200/customer/external/1?pretty '-d { "name":"JOhn Doe"}' 通过id更新索引数据
+9.curl -XPOST 192.168.106.58:9200/customer/external?pretty '-d { "name":"JOhn Doe"}' 出入索引数据随机id
+10.curl -XDELETE 192.168.106.58:9200/customer/external/2?pretty 通过id删除
+11.curl -XDELETE '192.168.106.58:9200/customer/external/_query?pretty' -d '
+{
+  "query": { "match": { "name": "John" } }
+}' 通过查询删除
+12.curl -XPOST '192.168.106.58:9200/customer/external/_bulk?pretty' -d '
+{"index":{"_id":"1"}}
+{"name": "John Doe" }
+{"index":{"_id":"2"}}
+{"name": "Jane Doe" }
+'
+curl -XPOST '192.168.106.58:9200/customer/external/_bulk?pretty' -d '
+{"update":{"_id":"1"}}
+{"doc": { "name": "John Doe becomes Jane Doe" } }
+{"delete":{"_id":"2"}}
+'
+13 curl -XPOST '192.168.106.58:9200/bank/account/_bulk?pretty' --data-binary @accounts.json 读文件批量索引
+
+批量索引操作
+14 curl -XPOST '192.168.106.58:9200/bank/_search?pretty' -d '
+{
+  "query": {
+    "bool": {
+      "must": [
+        { "match": { "address": "mill" } },
+        { "match": { "address": "lane" } }
+      ]
+    }
+  }
+}' query DSL(后期详细介绍)
+15 curl 192.168.106.58:9200/_nodes/process?pretty 查看进程信息 包括打开文件数，是否锁定内存等
+
+
+索引相关
+URL
+说明
+/index/_search
+不解释
+/_aliases
+获取或操作索引的别名
+/index/
+ 
+/index/type/
+创建或操作类型
+/index/_mapping
+创建或操作mapping
+/index/_settings
+创建或操作设置(number_of_shards是不可更改的)
+/index/_open
+打开被关闭的索引
+/index/_close
+关闭索引
+/index/_refresh
+刷新索引（使新加内容对搜索可见）
+/index/_flush
+刷新索引
+将变动提交到lucene索引文件中
+并清空elasticsearch的transaction log，
+与refresh的区别需要继续研究
+/index/_optimize
+优化segement，个人认为主要是对segement进行合并
+/index/_status
+获得索引的状态信息
+/index/_segments
+获得索引的segments的状态信息
+/index/_explain
+不执行实际搜索，而返回解释信息
+/index/_analyze
+不执行实际搜索，根据输入的参数进行文本分析
+/index/type/id
+操作指定文档，不解释
+/index/type/id/_create
+创建一个文档，如果该文件已经存在，则返回失败
+/index/type/id/_update
+更新一个文件，如果改文件不存在，则返回失败
+ 
+ 
+
+
+Distributed
+URL
+说明
+/_cluster/nodes
+获得集群中的节点列表和信息
+/_cluster/health
+获得集群信息
+/_cluster/state
+获得集群里的所有信息（集群信息、节点信息、mapping信息等）
+
+
+
+Nodes
+URL
+说明
+/_nodes/process
+我主要看file descriptor 这个信息
+/_nodes/process/stats
+统计信息（内存、CPU能）
+/_nodes/jvm
+获得各节点的虚拟机统计和配置信息
+/_nodes/jvm/stats
+更详细的虚拟机信息
+/_nodes/http
+获得各个节点的http信息（如ip地址）
+/_nodes/http/stats
+获得各个节点处理http请求的统计情况
+/_nodes/thread_pool
+获得各种类型的线程池
+（elasticsearch分别对不同的操作提供不同的线程池）的配置信息
+/_nodes/thread_pool/stats
+获得各种类型的线程池的统计信息
+ 
+ 
+
+以上这些操作和可以通过如
+/_nodes/${nodeId}/jvm/stats
+/_nodes/${nodeip}/jvm/stats
+/_nodes/${nodeattribute}/jvm/stats
+的形式针对指定节点的操作。
+
+
+其他
+/_template/templateName 创建索引配置模板，比如默认的mapping
+/_percolator/indexName/percolatorName 创建percolator（这个词怎么翻译成中文，是个问题）
+/index/type/_percolate/ 对payload中指定的文档进行”反
+
+结束语
+将url列出，个人觉得，对把握整个elasticsearch的概念和系统结构很有帮助，下一步需要针对重点内容(_search必然是重点内容）逐个研究。
+参考文献：http://wwwlouxuemingcom.blog.163.com/blog/static/209747822013287138100/

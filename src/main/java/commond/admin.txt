@@ -1,0 +1,17 @@
+
+我们通常用用_cat API检测集群是否健康。 确保9200端口号可用:
+curl 'localhost:9200/_cat/health?v'
+绿色表示一切正常, 黄色表示所有的数据可用但是部分副本还没有分配,红色表示部分数据因为某些原因不可用.
+
+2.通过如下语句，我们可以获取集群的节点列表：
+curl 'localhost:9200/_cat/nodes?v'
+
+3。通过如下语句，列出所有索引：
+curl 'localhost:9200/_cat/indices?v'
+
+4.创建索引
+现在我们创建一个名为“customer”的索引，然后再查看所有的索引：
+
+　curl -XPUT 'localhost:9200/customer?pretty'
+
+　curl 'localhost:9200/_cat/indices?v'

@@ -1,0 +1,209 @@
+执行过滤器
+----------------------------------------------------------------------------------------
+在先前的章节中，我们跳过了文档得分的细节（搜索结果中的_score字段）。
+这个得分是与我们指定的搜索查询匹配程度的一个相对度量。得分越高，文档越相关，得分越低文档的相关度越低。
+
+Elasticsearch中的所有的查询都会触发相关度得分的计算。
+对于那些我们不需要相关度得分的场景下，Elasticsearch以过滤器的形式提供了另一种查询功能。
+过滤器在概念上类似于查询，但是它们有非常快的执行速度，这种快的执行速度主要有以下两个原因
+    
+- 过滤器不会计算相关度的得分，所以它们在计算上更快一些
+- 过滤器可以被缓存到内存中，这使得在重复的搜索查询上，其要比相应的查询快出许多。
+
+filtered & filter
+为了理解过滤器，我们先来介绍“被过滤”的查询，这使得你可以将一个查询（像是match_all，match，bool等）和一个过滤器结合起来。
+	作为一个例子，我们介绍一下范围过滤器，它允许我们通过一个区间的值来过滤文档。这通常被用在数字和日期的过滤上。
+	这个例子使用一个被过滤的查询，其返回值是越在20000到30000之间（闭区间）的账户。
+	换句话说，我们想要找到越大于等于20000并且小于等于30000的账户。
+        curl -XPOST 'localhost:9200/bank/_search?pretty' -d '
+        {
+          "query": {
+            "filtered": {
+              "query": { "match_all": {} },
+              "filter": {
+                "range": {
+                  "balance": {
+                    "gte": 20000,
+                    "lte": 30000
+                  }
+                }
+              }
+            }
+          }
+        }'
+	分解上面的例子，被过滤的查询包含一个match_all查询（查询部分）和一个过滤器（filter部分）。
+	我们可以在查询部分中放入其他查询，在filter部分放入其它过滤器。
+	在上面的应用场景中，由于所有的在这个范围之内的文档都是平等的（或者说相关度都是一样的），没有一个文档比另一个文档更相关，所以这个时候使用范围过滤器就非常合适了。
+	通常情况下，要决定是使用过滤器还是使用查询，你就需要问自己是否需要相关度得分。
+	如果相关度是不重要的，使用过滤器，否则使用查询。
+	如果你有SQL背景，查询和过滤器在概念上类似于SELECT WHERE语句， although more so for filters than queries。
+    
+除了match_all, match, bool,filtered和range查询，还有很多其它类型的查uxn/过滤器，我们这里不会涉及。
+由于我们已经对它们的工作原理有了基本的理解，将其应用到其它类型的查询、过滤器上也不是件难事。
+
+
+执行聚合
+----------------------------------------------------------------------------------------
+聚合提供了分组并统计数据的能力。
+理解聚合的最简单的方式是将其粗略地等同为SQL的GROUP BY和SQL聚合函数。
+在Elasticsearch中，你可以在一个响应中同时返回命中的数据和聚合结果。
+你可以使用简单的API同时运行查询和多个聚合，并以一次返回，这避免了来回的网络通信，这是非常强大和高效的。
+
+aggs & group_by_state
+    作为开始的一个例子，我们按照state分组，按照州名的计数倒序排序：
+    
+        curl -XPOST 'localhost:9200/bank/_search?pretty' -d '
+        {
+          "size": 0,
+          "aggs": {
+            "group_by_state": {
+              "terms": {
+                "field": "state"
+              }
+            }
+          }
+        }'
+	在SQL中，上面的聚合在概念上类似于：
+       SELECT COUNT(*) from bank GROUP BY state ORDER BY COUNT(*) DESC
+   
+   响应（其中一部分）是：
+   
+        "hits" : {
+            "total" : 1000,
+            "max_score" : 0.0,
+            "hits" : [ ]
+          },
+          "aggregations" : {
+            "group_by_state" : {
+              "buckets" : [ {
+                "key" : "al",
+                "doc_count" : 21
+              }, {
+                "key" : "tx",
+                "doc_count" : 17
+              }, {
+                "key" : "id",
+                "doc_count" : 15
+              }, {
+                "key" : "ma",
+                "doc_count" : 15
+              }, {
+                "key" : "md",
+                "doc_count" : 15
+              }, {
+                "key" : "pa",
+                "doc_count" : 15
+              }, {
+                "key" : "dc",
+                "doc_count" : 14
+              }, {
+                "key" : "me",
+                "doc_count" : 14
+              }, {
+                "key" : "mo",
+                "doc_count" : 14
+              }, {
+                "key" : "nd",
+                "doc_count" : 14
+              } ]
+            }
+          }
+        }
+        
+    我们可以看到AL（abama）有21个账户，TX有17个账户，ID（daho）有15个账户，依此类推。
+    注意我们将size设置成0，这样我们就可以只看到聚合结果了，而不会显示命中的结果。
+    在先前聚合的基础上，现在这个例子计算了每个州的账户的平均余额（还是按照账户数量倒序排序的前10个州）：
+    
+        curl -XPOST 'localhost:9200/bank/_search?pretty' -d '
+        {
+          "size": 0,
+          "aggs": {
+            "group_by_state": {
+              "terms": {
+                "field": "state"
+              },
+              "aggs": {
+                "average_balance": {
+                  "avg": {
+                    "field": "balance"
+                  }
+                }
+              }
+            }
+          }
+        }'
+        
+    注意，我们把average_balance聚合嵌套在了group_by_state聚合之中。这是所有聚合的一个常用模式。你可以任意的聚合之中嵌套聚合，这样你就可以从你的数据中抽取出想要的概述。
+    
+    基于前面的聚合，现在让我们按照平均余额进行排序：
+    
+        curl -XPOST 'localhost:9200/bank/_search?pretty' -d '
+        {
+          "size": 0,
+          "aggs": {
+            "group_by_state": {
+              "terms": {
+                "field": "state",
+                "order": {
+                  "average_balance": "desc"
+                }
+              },
+              "aggs": {
+                "average_balance": {
+                  "avg": {
+                    "field": "balance"
+                  }
+                }
+              }
+            }
+          }
+        }'
+        
+    下面的例子显示了如何使用年龄段（20-29，30-39，40-49）分组，然后在用性别分组，然后为每一个年龄段的每一个性别计算平均账户余额：
+    
+        curl -XPOST 'localhost:9200/bank/_search?pretty' -d '
+        {
+          "size": 0,
+          "aggs": {
+            "group_by_age": {
+              "range": {
+                "field": "age",
+                "ranges": [
+                  {
+                    "from": 20,
+                    "to": 30
+                  },
+                  {
+                    "from": 30,
+                    "to": 40
+                  },
+                  {
+                    "from": 40,
+                    "to": 50
+                  }
+                ]
+              },
+              "aggs": {
+                "group_by_gender": {
+                  "terms": {
+                    "field": "gender"
+                  },
+                  "aggs": {
+                    "average_balance": {
+                      "avg": {
+                        "field": "balance"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }'
+        
+有很多关于聚合的细节，我们没有涉及。如果你想做更进一步的实验，
+http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-aggregations.html是一个非常好的起点。
+总结
+Elasticsearch既是一个简单的产品，也是一个复杂的产品。
+我们现在已经学习到了基础部分，它的一些原理，以及怎样用REST API来做一些工作。
+我希望这个教程已经使你对Elasticsearch是什么有了一个更好的理解，跟重要的是，能够激发你继续实验Elasticsearch的其它特性。

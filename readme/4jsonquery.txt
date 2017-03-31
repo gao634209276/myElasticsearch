@@ -1,0 +1,138 @@
+介绍查询语言
+----------------------------------------------------------------------------------------
+	Elasticsearch提供一种JSON风格的特定领域语言，利用它你可以执行查询。这被称为查询DSL。
+	这个查询语言相当全面，第一眼看上去可能有些咄咄逼人，但是最好的学习方法就是以几个基础的例子来开始。
+	回到我们上一个例子，我们执行了这个查询：
+        {
+          "query": { "match_all": {} }
+        }
+	分解以上的这个查询，其中的query部分告诉我查询的定义，match_all部分就是我们想要运行的查询的类型。
+	match_all查询，就是简单地查询一个指定索引下的所有的文档。
+    
+	除了这个query参数之外，我们也可以通过传递其它的参数来影响搜索结果。
+	比如，下面做了一次match_all并只返回第一个文档：
+        curl -XPOST 'localhost:9200/bank/_search?pretty' -d '
+        {
+          "query": { "match_all": {} },
+          "size": 1
+        }'
+	注意，如果没有指定size的值，那么它默认就是10。
+	下面的例子，做了一次match_all并且返回第11到第20个文档：
+        curl -XPOST 'localhost:9200/bank/_search?pretty' -d '
+        {
+          "query": { "match_all": {} },
+          "from": 10,
+          "size": 10
+        }'
+	其中的from参数（0-based）从哪个文档开始，size参数指明从from参数开始，要返回多少个文档。
+	这个特性对于搜索结果分页来说非常有帮助。注意，如果不指定from的值，它默认就是0。
+	下面这个例子做了一次match_all并且以账户余额降序排序，最后返前十个文档：
+        curl -XPOST 'localhost:9200/bank/_search?pretty' -d '
+        {
+          "query": { "match_all": {} },
+          "sort": { "balance": { "order": "desc" } }
+        }'
+
+执行搜索
+----------------------------------------------------------------------------------------
+现在我们已经知道了几个基本的参数，让我们进一步发掘查询语言吧。
+
+query & _source
+	首先我们看一下返回文档的字段。默认情况下，是返回完整的JSON文档的。这可以通过source来引用（搜索hits中的_sourcei字段）。
+	如果我们不想返回完整的源文档，我们可以指定返回的几个字段。
+	下面这个例子说明了怎样返回两个字段account_number和balance
+	（当然，这两个字段都是指_source中的字段），以下是具体的搜索：
+        curl -XPOST 'localhost:9200/bank/_search?pretty' -d '
+        {
+          "query": { "match_all": {} },
+          "_source": ["account_number", "balance"]
+        }'
+    注意到上面的例子仅仅是简化了_source字段。它仍将会返回一个叫做_source的字段，但是仅仅包含account_number和balance来年改革字段。
+
+match_all & match
+	如果你有SQL背景，上述查询在概念上有些像SQL的SELECT FROM。
+	现在让我们进入到查询部分。之前，我们看到了match_all查询是怎样匹配到所有的文档的。
+	现在我们介绍一种新的查询，叫做match查询，这可以看成是一个简单的字段搜索查询（比如对应于某个或某些特定字段的搜索）。
+    
+    下面这个例子返回账户编号为20的文档：
+        curl -XPOST 'localhost:9200/bank/_search?pretty' -d '
+        {
+          "query": { "match": { "account_number": 20 } }
+        }'    
+	下面这个例子返回地址中包含“mill”的所有账户：
+        curl -XPOST 'localhost:9200/bank/_search?pretty' -d '
+        {
+          "query": { "match": { "address": "mill" } }
+        }'
+	下面这个例子返回地址中包含“mill”或者包含“lane”的账户：
+       curl -XPOST 'localhost:9200/bank/_search?pretty' -d '
+        {
+          "query": { "match": { "address": "mill lane" } }
+        }' 
+	下面这个例子是match的变体（match_phrase），它会去匹配短语“mill lane”：
+        curl -XPOST 'localhost:9200/bank/_search?pretty' -d '
+        {
+          "query": { "match_phrase": { "address": "mill lane" } }
+        }'
+
+bool & must
+	现在，让我们介绍一下布尔查询。布尔查询允许我们利用布尔逻辑将较小的查询组合成较大的查询。
+	现在这个例子组合了两个match查询，这个组合查询返回包含“mill”和“lane”的所有的账户：
+        curl -XPOST 'localhost:9200/bank/_search?pretty' -d '
+        {
+          "query": {
+            "bool": {
+              "must": [
+                { "match": { "address": "mill" } },
+                { "match": { "address": "lane" } }
+              ]
+            }
+          }
+        }'
+bool & should
+	在上面的例子中，bool must语句指明了，对于一个文档，所有的查询都必须为真，这个文档才能够匹配成功。
+	相反的，下面的例子组合了两个match查询，它返回的是地址中包含“mill”或者“lane”的所有的账户:
+        curl -XPOST 'localhost:9200/bank/_search?pretty' -d '
+        {
+          "query": {
+            "bool": {
+              "should": [
+                { "match": { "address": "mill" } },
+                { "match": { "address": "lane" } }
+              ]
+            }
+          }
+        }'
+bool & must_not
+	在上面的例子中，bool should语句指明，对于一个文档，查询列表中，只要有一个查询匹配，那么这个文档就被看成是匹配的。
+	现在这个例子组合了两个查询，它返回地址中既不包含“mill”，同时也不包含“lane”的所有的账户信息：
+        curl -XPOST 'localhost:9200/bank/_search?pretty' -d '
+        {
+          "query": {
+            "bool": {
+              "must_not": [
+                { "match": { "address": "mill" } },
+                { "match": { "address": "lane" } }
+              ]
+            }
+          }
+        }' 
+
+bool & must & must_not & should
+	在上面的例子中， bool must_not语句指明，对于一个文档，查询列表中的的所有查询都必须都不为真，这个文档才被认为是匹配的。
+	我们可以在一个bool查询里一起使用must、should、must_not。
+	此外，我们可以将bool查询放到这样的bool语句中来模拟复杂的、多等级的布尔逻辑。
+    下面这个例子返回40岁以上并且不生活在ID（daho）的人的账户：
+        curl -XPOST 'localhost:9200/bank/_search?pretty' -d '
+        {
+          "query": {
+            "bool": {
+              "must": [
+                { "match": { "age": "40" } }
+              ],
+              "must_not": [
+                { "match": { "state": "ID" } }
+              ]
+            }
+          }
+        }'

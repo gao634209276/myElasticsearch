@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Diagram>
+  <ID>JAVA</ID>
+  <OriginalElement>org.elasticsearch.client.transport</OriginalElement>
+  <nodes>
+    <node x="1261.0701754385964" y="1364.0">org.elasticsearch.client.transport.TransportClient.Builder</node>
+    <node x="586.8355263157895" y="400.0">org.elasticsearch.client.transport.TransportClientNodesService</node>
+    <node x="0.0" y="1080.0">org.elasticsearch.client.transport.ClientTransportModule</node>
+    <node x="934.8480994152046" y="228.0">org.elasticsearch.client.transport.TransportClientNodesService.ScheduledNodeSampler</node>
+    <node x="1211.4305555555554" y="0.0">org.elasticsearch.client.transport.TransportClientNodesService.NodeSampler</node>
+    <node x="1235.8480994152046" y="228.0">org.elasticsearch.client.transport.TransportClientNodesService.SimpleNodeSampler</node>
+    <node x="1208.7236842105262" y="940.0">org.elasticsearch.client.transport.TransportClient</node>
+    <node x="516.1425438596491" y="810.5">org.elasticsearch.client.transport.TransportClientNodesService.NodeListenerCallback</node>
+    <node x="262.8480994152046" y="200.0">org.elasticsearch.client.transport.NoNodeAvailableException</node>
+    <node x="671.8480994152046" y="228.0">org.elasticsearch.client.transport.TransportClientNodesService.SniffNodesSampler</node>
+    <node x="1222.7236842105262" y="796.0">org.elasticsearch.client.transport.support.TransportProxyClient</node>
+    <node x="292.9999999999999" y="1066.0">org.elasticsearch.client.transport.TransportClientNodesService.RetryListener</node>
+  </nodes>
+  <notes />
+  <edges>
+    <edge source="org.elasticsearch.client.transport.support.TransportProxyClient" target="org.elasticsearch.client.transport.TransportClientNodesService">
+      <point x="0.0" y="-47.0" />
+      <point x="1677.2236842105262" y="771.0" />
+      <point x="1516.5355263157894" y="771.0" />
+      <point x="413.20000000000005" y="173.0" />
+    </edge>
+    <edge source="org.elasticsearch.client.transport.TransportClientNodesService.NodeListenerCallback" target="org.elasticsearch.client.transport.TransportClientNodesService">
+      <point x="0.0" y="-32.5" />
+      <point x="783.1425438596491" y="771.0" />
+      <point x="896.7355263157896" y="771.0" />
+      <point x="-206.5999999999999" y="173.0" />
+    </edge>
+    <edge source="org.elasticsearch.client.transport.TransportClient" target="org.elasticsearch.client.transport.support.TransportProxyClient">
+      <point x="118.0" y="-187.0" />
+      <point x="1562.7236842105262" y="915.0" />
+      <point x="1677.2236842105262" y="915.0" />
+      <point x="0.0" y="47.0" />
+    </edge>
+    <edge source="org.elasticsearch.client.transport.TransportClientNodesService.RetryListener" target="org.elasticsearch.client.transport.TransportClientNodesService.NodeListenerCallback">
+      <point x="111.25" y="-61.0" />
+      <point x="849.2499999999999" y="915.0" />
+      <point x="783.1425438596491" y="915.0" />
+      <point x="0.0" y="32.5" />
+    </edge>
+    <edge source="org.elasticsearch.client.transport.TransportClientNodesService" target="org.elasticsearch.client.transport.NoNodeAvailableException">
+      <point x="-459.1111111111113" y="-173.0" />
+      <point x="644.2244152046782" y="375.0" />
+      <point x="554.5980994152046" y="375.0" />
+      <point x="97.25" y="75.0" />
+    </edge>
+    <edge source="org.elasticsearch.client.transport.TransportClient.Builder" target="org.elasticsearch.client.transport.ClientTransportModule">
+      <point x="-78.75" y="-89.0" />
+      <point x="1287.3201754385964" y="1344.0" />
+      <point x="136.5" y="1344.0" />
+      <point x="0.0" y="47.0" />
+    </edge>
+    <edge source="org.elasticsearch.client.transport.TransportClientNodesService.SimpleNodeSampler" target="org.elasticsearch.client.transport.TransportClientNodesService.NodeSampler">
+      <point x="0.0" y="-47.0" />
+      <point x="30.125" y="75.0" />
+    </edge>
+    <edge source="org.elasticsearch.client.transport.TransportClient.Builder" target="org.elasticsearch.client.transport.TransportClient">
+      <point x="26.25" y="-89.0" />
+      <point x="1392.3201754385964" y="1334.0" />
+      <point x="1444.7236842105262" y="1334.0" />
+      <point x="2.8421709430404007E-14" y="187.0" />
+    </edge>
+    <edge source="org.elasticsearch.client.transport.TransportClient" target="org.elasticsearch.client.transport.TransportClient.Builder">
+      <point x="157.33333333333337" y="187.0" />
+      <point x="1602.0570175438597" y="1344.0" />
+      <point x="1444.8201754385964" y="1344.0" />
+      <point x="78.75" y="-89.0" />
+    </edge>
+    <edge source="org.elasticsearch.client.transport.TransportClientNodesService" target="org.elasticsearch.client.transport.TransportClientNodesService.SimpleNodeSampler">
+      <point x="229.55555555555566" y="-173.0" />
+      <point x="1332.8910818713452" y="375.0" />
+      <point x="1298.8480994152046" y="375.0" />
+      <point x="-63.0" y="47.0" />
+    </edge>
+    <edge source="org.elasticsearch.client.transport.TransportClientNodesService.SniffNodesSampler" target="org.elasticsearch.client.transport.TransportClientNodesService">
+      <point x="60.75" y="47.0" />
+      <point x="854.0980994152046" y="375.0" />
+      <point x="873.7799707602338" y="375.0" />
+      <point x="-229.55555555555566" y="-173.0" />
+    </edge>
+    <edge source="org.elasticsearch.client.transport.TransportClientNodesService" target="org.elasticsearch.client.transport.TransportClientNodesService.NodeSampler">
+      <point x="114.77777777777783" y="-173.0" />
+      <point x="1218.1133040935674" y="375.0" />
+      <point x="1225.3480994152046" y="375.0" />
+      <point x="1225.3480994152046" y="180.0" />
+      <point x="1301.8055555555554" y="180.0" />
+      <point x="-30.125" y="75.0" />
+    </edge>
+    <edge source="org.elasticsearch.client.transport.TransportClientNodesService.RetryListener" target="org.elasticsearch.client.transport.NoNodeAvailableException">
+      <point x="-333.75" y="-61.0" />
+      <point x="404.2499999999999" y="915.0" />
+      <point x="360.09809941520473" y="915.0" />
+      <point x="-97.25" y="75.0" />
+    </edge>
+    <edge source="org.elasticsearch.client.transport.TransportClientNodesService.NodeSampler" target="org.elasticsearch.client.transport.TransportClientNodesService">
+      <point x="90.375" y="75.0" />
+      <point x="1422.3055555555554" y="180.0" />
+      <point x="1498.3480994152046" y="180.0" />
+      <point x="1498.3480994152046" y="375.0" />
+      <point x="1562.4466374269005" y="375.0" />
+      <point x="459.1111111111111" y="-173.0" />
+    </edge>
+    <edge source="org.elasticsearch.client.transport.TransportClientNodesService.SniffNodesSampler" target="org.elasticsearch.client.transport.TransportClientNodesService.NodeSampler">
+      <point x="0.0" y="-47.0" />
+      <point x="793.3480994152046" y="170.0" />
+      <point x="1241.5555555555554" y="170.0" />
+      <point x="-90.375" y="75.0" />
+    </edge>
+    <edge source="org.elasticsearch.client.transport.TransportClientNodesService" target="org.elasticsearch.client.transport.TransportClientNodesService.RetryListener">
+      <point x="0.0" y="173.0" />
+      <point x="1103.3355263157896" y="771.0" />
+      <point x="1106.765350877193" y="771.0" />
+      <point x="1106.765350877193" y="915.0" />
+      <point x="1071.75" y="915.0" />
+      <point x="333.75" y="-61.0" />
+    </edge>
+    <edge source="org.elasticsearch.client.transport.TransportClientNodesService.SimpleNodeSampler" target="org.elasticsearch.client.transport.TransportClientNodesService">
+      <point x="63.0" y="47.0" />
+      <point x="1424.8480994152046" y="375.0" />
+      <point x="1447.6688596491226" y="375.0" />
+      <point x="344.33333333333326" y="-173.0" />
+    </edge>
+    <edge source="org.elasticsearch.client.transport.TransportClientNodesService" target="org.elasticsearch.client.transport.TransportClientNodesService.ScheduledNodeSampler">
+      <point x="-114.77777777777783" y="-173.0" />
+      <point x="988.5577485380117" y="375.0" />
+      <point x="1004.8480994152046" y="375.0" />
+      <point x="-70.0" y="47.0" />
+    </edge>
+    <edge source="org.elasticsearch.client.transport.TransportClientNodesService.ScheduledNodeSampler" target="org.elasticsearch.client.transport.TransportClientNodesService">
+      <point x="70.0" y="47.0" />
+      <point x="1144.8480994152046" y="375.0" />
+      <point x="1103.3355263157896" y="375.0" />
+      <point x="0.0" y="-173.0" />
+    </edge>
+    <edge source="org.elasticsearch.client.transport.TransportClientNodesService" target="org.elasticsearch.client.transport.TransportClientNodesService.SniffNodesSampler">
+      <point x="-344.3333333333335" y="-173.0" />
+      <point x="759.002192982456" y="375.0" />
+      <point x="732.5980994152046" y="375.0" />
+      <point x="-60.75" y="47.0" />
+    </edge>
+    <edge source="org.elasticsearch.client.transport.TransportClient" target="org.elasticsearch.client.transport.TransportClientNodesService">
+      <point x="-118.0" y="-187.0" />
+      <point x="1326.7236842105262" y="915.0" />
+      <point x="1212.2236842105262" y="915.0" />
+      <point x="1212.2236842105262" y="771.0" />
+      <point x="1309.9355263157895" y="771.0" />
+      <point x="206.5999999999999" y="173.0" />
+    </edge>
+    <edge source="org.elasticsearch.client.transport.TransportClientNodesService.RetryListener" target="org.elasticsearch.client.transport.TransportClientNodesService">
+      <point x="-111.25" y="-61.0" />
+      <point x="626.7499999999999" y="915.0" />
+      <point x="505.64254385964915" y="915.0" />
+      <point x="505.64254385964915" y="771.0" />
+      <point x="690.1355263157894" y="771.0" />
+      <point x="-413.20000000000005" y="173.0" />
+    </edge>
+  </edges>
+  <settings layout="Hierarchic Group" zoom="0.899359795134443" x="973.2927107061505" y="401.64179954441914" />
+  <SelectedNodes />
+  <Categories>
+    <Category>Constructors</Category>
+    <Category>Methods</Category>
+    <Category>Properties</Category>
+    <Category>Inner Classes</Category>
+  </Categories>
+  <SCOPE>All</SCOPE>
+  <VISIBILITY>private</VISIBILITY>
+</Diagram>
+

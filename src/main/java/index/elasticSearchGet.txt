@@ -1,0 +1,14 @@
+上篇博客记录了如何用Java调用api把数据写入索引，这次记录下如何搜索。
+一、准备数据
+See: DataFactory
+二、查询
+See:ElasticSearchGet
+参考资料：
+1.分布式搜索elasticsearch java API 之（五）——搜索
+http://blog.csdn.net/laigood/article/details/7606011
+2.GET API
+https://www.elastic.co/guide/en/elasticsearch/client/java-api/current/java-docs-get.html
+3.elasticsearch中文指南–java-api
+https://endymecy.gitbooks.io/elasticsearch-guide-chinese/content/java-api/README.html
+4.高亮显示
+http://blog.csdn.net/zhengreate/article/details/8068365

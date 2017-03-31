@@ -1,0 +1,44 @@
+elasticsearch源码分析之启动过程（二）
+首先从main开始，从start脚本可以看出，从org.elasticsearch.bootstrap.ElasticSearch开始运行。
+初始化
+	真正的初始化在Bootstrap的init中，首先是对command的解析，并将参数置于system property中，
+	在创建Bootstrap实例的时候，会启动一个keepAliveThread线程，并setDaemon(false)，线程启动之后就进入到await状态；
+	此外，利用Runtime.getRuntime().addShutdownHook方法加入一个Hook，在程序退出时触发该Hook
+	（注：退出是指ctrl+c或者kill -15，但如果用kill -9 那是没办法的），在该Hook中会对之前的线程做countDown操作，
+	其实这个线程相当于一个heartbeat，用以来表示ES进程是否还活着。
+
+配置的加载
+	这里配置的加载会从三个部分来加载配置，分别是启动命令、配置文件和jvm/os环境。
+	1、从command来判断是不是后台启动，日志的初始化，然后写入pid。
+	2、获取JVM信息，如果是使用client vm则会给出提示（建议使用server vm，毕竟ES需要很大的资源，可以用-server来强制使用server vm）。
+	 默认是开启jvm 版本检查的，如果不检查可能会导致es数据的损坏。针对不同公司的jvm vendor会有不同的处理方式，
+	如果是Oracle的，以下几个编译方案时可能影响ES：如果是IBM的，对版本比较会有要求，要求版本必须大于2.8，不然可能会导致index损坏。
+	3、检查其他的一些外部资源；
+	首先不能用root启动ES，否则就会强制关闭。
+	对于mlockall的配置我们其实是建议设为true的，因为这样可以保障ES不会去占用其他系统的内存、swap等资源。
+	那么ES是怎么来锁住内存的呢，这里用到了JNA，这里lock的mem会有两个层面的，分别是hard和soft。
+	对于某些原因lock失败的情况，可能需要调整/etc/security/limits.conf中对于当前用户的soft/hard memlock unlimited配置。
+	4.初始化两种probes，分别是ProcessProbe和Osprobe，这两个probe将会提供给ES的stats api所需要的一些ES进程和OS层面的信息。
+	5、增加shutdown的hook，当集群shutdown的时候，会主动调用node的close方法，即让本node安全退出。
+	6、接下来才是对于node的配置的初始化，这部分的配置来自配置文件，通过nodeSettings创建nodeBuilder，
+	而node的初始化就是通过nodeSettings来创建的。
+
+
+Node的创建
+	其实上文已经提到了node实例是通过nodeBuilder来完成的,这里使用了Guice的Injector进行注入与获取实例。
+	elasticsearch里面的组件基本都是用上面的方式进行模块化管理，elasticsearch对guice进行了封装，
+	通过ModulesBuilder类构建es的模块，一个es节点包括下面模块：
+
+	看名字就大体知道是每个module是干嘛的了吧。
+	这里有必要简单介绍下Guice，不然看到这里好多人会看不懂。Guice是google开源的一个依赖注入的框架，比起spring更加的轻量级，关键点：
+		1，使用@injectguice会扫描inject注释，并对方法中出现的参数实例寻找对应注册的实例进行初始化。
+		2，bind接口将接口跟具体实现类绑定。
+		3，使用 Injector 引导应用程序。
+	因此可以看到每个module里面都有一个方法configure()用于将对象和实现类作绑定。
+
+Node的启动
+	Node的启动其实就是node里每个组件的启动，同样的，分别调用不同的实例的start方法来启动这个组件,如下：
+
+这些组件我后面会挑一些来细细地讲解。
+到目前为止，整个ES的启动就已经完成！
+载请出处：http://www.opscoder.info/es_bootstrap.html
