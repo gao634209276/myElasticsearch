@@ -1,0 +1,55 @@
+#### get api
+curl -XGET 'localhost:9200/twitter/tweet/1?pretty'
+
+curl -XHEAD 'localhost:9200/twitter/tweet/1?pretty'
+
+#### source filter
+curl -XGET 'localhost:9200/twitter/tweet/1?_source=false&pretty'
+
+curl -XGET 'localhost:9200/twitter/tweet/1?_source_include=*.id&_source_exclude=entities&pretty'
+
+curl -XGET 'localhost:9200/twitter/tweet/0?_source=*.id,retweeted&pretty'
+
+#### storied fields
+curl -XPUT 'localhost:9200/twitter?pretty' -H 'Content-Type: application/json' -d'
+{
+   "mappings": {
+      "tweet": {
+         "properties": {
+            "counter": {
+               "type": "integer",
+               "store": false
+            },
+            "tags": {
+               "type": "keyword",
+               "store": true
+            }
+         }
+      }
+   }
+}
+'
+curl -XPUT 'localhost:9200/twitter/tweet/1?pretty' -H 'Content-Type: application/json' -d'
+{
+    "counter" : 1,
+    "tags" : ["red"]
+}
+'
+curl -XGET 'localhost:9200/twitter/tweet/1?stored_fields=tags,counter&pretty'
+
+curl -XPUT 'localhost:9200/twitter/tweet/2?routing=user1&pretty' -H 'Content-Type: application/json' -d'
+{
+    "counter" : 1,
+    "tags" : ["white"]
+}
+'
+curl -XGET 'localhost:9200/twitter/tweet/2?routing=user1&stored_fields=tags,counter&pretty'
+
+#### get source directly
+curl -XGET 'localhost:9200/twitter/tweet/1/_source?pretty'
+curl -XHEAD 'localhost:9200/twitter/tweet/1/_source?pretty'
+
+#### routing
+curl -XGET 'localhost:9200/twitter/tweet/2?routing=user1&pretty'
+
+

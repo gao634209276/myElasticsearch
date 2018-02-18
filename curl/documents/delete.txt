@@ -1,0 +1,65 @@
+#### Delete api
+curl -XDELETE 'localhost:9200/twitter/tweet/1?pretty'
+
+#### routing
+curl -XDELETE 'localhost:9200/twitter/tweet/1?routing=kimchy&pretty'
+
+#### timeout
+curl -XDELETE 'localhost:9200/twitter/tweet/1?timeout=5m&pretty'
+
+#### delete by query
+curl -XPOST 'localhost:9200/twitter/_delete_by_query?pretty' -H 'Content-Type: application/json' -d'
+{
+  "query": {
+    "match": {
+      "message": "some message"
+    }
+  }
+}
+'
+curl -XPOST 'localhost:9200/twitter/tweet/_delete_by_query?conflicts=proceed&pretty' -H 'Content-Type: application/json' -d'
+{
+  "query": {
+    "match_all": {}
+  }
+}
+'
+curl -XPOST 'localhost:9200/twitter,blog/tweet,post/_delete_by_query?pretty' -H 'Content-Type: application/json' -d'
+{
+  "query": {
+    "match_all": {}
+  }
+}
+'
+### routing delete
+curl -XPOST 'localhost:9200/twitter/_delete_by_query?routing=1&pretty' -H 'Content-Type: application/json' -d'
+{
+  "query": {
+    "range" : {
+        "age" : {
+           "gte" : 10
+        }
+    }
+  }
+}
+'
+curl -XPOST 'localhost:9200/twitter/_delete_by_query?scroll_size=5000&pretty' -H 'Content-Type: application/json' -d'
+{
+  "query": {
+    "term": {
+      "user": "kimchy"
+    }
+  }
+}
+'
+#### url parameters
+
+
+#### work with task api
+curl -XGET 'localhost:9200/_tasks?detailed=true&actions=*/delete/byquery&pretty'
+
+#### work with chancel task api
+curl -XPOST 'localhost:9200/_tasks/task_id:1/_cancel?pretty'
+
+#### rethrottling
+curl -XPOST 'localhost:9200/_delete_by_query/task_id:1/_rethrottle?requests_per_second=-1&pretty'

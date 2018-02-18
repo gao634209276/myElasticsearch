@@ -1,0 +1,103 @@
+#### update api
+curl -XPUT 'localhost:9200/test/type1/1?pretty' -H 'Content-Type: application/json' -d'
+{
+    "counter" : 1,
+    "tags" : ["red"]
+}
+'
+#### scripted updates
+curl -XPOST 'localhost:9200/test/type1/1/_update?pretty' -H 'Content-Type: application/json' -d'
+{
+    "script" : {
+        "source": "ctx._source.counter += params.count",
+        "lang": "painless",
+        "params" : {
+            "count" : 4
+        }
+    }
+}
+'
+# not exists update
+curl -XPOST 'localhost:9200/test/type1/1/_update?pretty' -H 'Content-Type: application/json' -d'
+{
+    "script" : {
+        "source": "ctx._source.tags.add(params.tag)",
+        "lang": "painless",
+        "params" : {
+            "tag" : "blue"
+        }
+    }
+}
+'
+# add fields
+curl -XPOST 'localhost:9200/test/type1/1/_update?pretty' -H 'Content-Type: application/json' -d'
+{
+    "script" : "ctx._source.new_field = \u0027value_of_new_field\u0027"
+}
+'
+# remove fields
+curl -XPOST 'localhost:9200/test/type1/1/_update?pretty' -H 'Content-Type: application/json' -d'
+{
+    "script" : "ctx._source.remove(\u0027new_field\u0027)"
+}
+'
+# even change operation with if
+curl -XPOST 'localhost:9200/test/type1/1/_update?pretty' -H 'Content-Type: application/json' -d'
+{
+    "script" : {
+        "source": "if (ctx._source.tags.contains(params.tag)) { ctx.op = \u0027delete\u0027 } else { ctx.op = \u0027none\u0027 }",
+        "lang": "painless",
+        "params" : {
+            "tag" : "green"
+        }
+    }
+}
+'
+#### update with a partial document (merge)
+
+#### delete noop updates
+
+#### upserts (update or insert)
+curl -XPOST 'localhost:9200/test/type1/1/_update?pretty' -H 'Content-Type: application/json' -d'
+{
+    "script" : {
+        "source": "ctx._source.counter += params.count",
+        "lang": "painless",
+        "params" : {
+            "count" : 4
+        }
+    },
+    "upsert" : {
+        "counter" : 1
+    }
+}
+'
+# script
+curl -XPOST 'localhost:9200/sessions/session/dh3sgudg8gsrgl/_update?pretty' -H 'Content-Type: application/json' -d'
+{
+    "scripted_upsert":true,
+    "script" : {
+        "id": "my_web_session_summariser",
+        "params" : {
+            "pageViewEvent" : {
+                "url":"foo.com/bar",
+                "response":404,
+                "time":"2014-01-01 12:32"
+            }
+        }
+    },
+    "upsert" : {}
+}
+'
+#doc as upsert
+curl -XPOST 'localhost:9200/test/type1/1/_update?pretty' -H 'Content-Type: application/json' -d'
+{
+    "doc" : {
+        "name" : "new_name"
+    },
+    "doc_as_upsert" : true
+}
+'
+
+
+

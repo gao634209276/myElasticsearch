@@ -2,93 +2,104 @@
 [翻译]Elasticsearch重要文章之四：监控每个节点(Indices部分)
 大岩不灿 发表于 2015年5月26日 浏览 2,936 次
 
-集群的健康只是一个方面，它是对整个集群所有方面的一个很高的概括。节点状态的api是另外一个方面，它提供了关于你的集群中每个节点令你眼花缭乱的统计数据。
+集群的健康只是一个方面，它是对整个集群所有方面的一个很高的概括。
+节点状态的api是另外一个方面，它提供了关于你的集群中每个节点令你眼花缭乱的统计数据。
 
-节点的状态提供了那么多的统计数据，在你很熟悉它们执勤，你可能不确定哪些指标是至关重要。我们会把需要监控的最重要的几个指标跳出来（我们建议你把所有的统计指标记录下来，例如使用Marvel插件，因为你不知道你哪天可能就需要）。
+节点的状态提供了那么多的统计数据，在你很熟悉它们执勤，你可能不确定哪些指标是至关重要。
+我们会把需要监控的最重要的几个指标跳出来（我们建议你把所有的统计指标记录下来，例如使用Marvel插件，因为你不知道你哪天可能就需要）。
 
 节点状态的API可以通过下面的方式执行
 GET _nodes/stats
 
 在输出内容的开头，我们可以看到集群的名字和我们第一个node的信息：
 
-{
-"cluster_name": "elasticsearch_zach",
-"nodes": {
-  "UNr6ZMf5Qk-YCPA_L18BOQ": {
-	 "timestamp": 1408474151742,
-	 "name": "Zach",
-	 "transport_address": "inet[zacharys-air/192.168.1.131:9300]",
-	 "host": "zacharys-air",
-	 "ip": [
-		"inet[zacharys-air/192.168.1.131:9300]",
-		"NONE"
-	 ],
-   ...
+    {
+    "cluster_name": "elasticsearch_zach",
+    "nodes": {
+      "UNr6ZMf5Qk-YCPA_L18BOQ": {
+         "timestamp": 1408474151742,
+         "name": "Zach",
+         "transport_address": "inet[zacharys-air/192.168.1.131:9300]",
+         "host": "zacharys-air",
+         "ip": [
+            "inet[zacharys-air/192.168.1.131:9300]",
+            "NONE"
+         ],
+       ...
 
-节点会根据一个hash值的顺序来显示，也就是node的uuid值。还有一些关于node的网络属性会显示（例如传输地址和HOST）。这些信息有助于调试发现问题，比如那些节点没有加入集群。通常你可能会发现端口用错了，或者节点绑错了IP地址等等。
+节点会根据一个hash值的顺序来显示，也就是node的uuid值。
+还有一些关于node的网络属性会显示（例如传输地址和HOST）。
+这些信息有助于调试发现问题，比如那些节点没有加入集群。通常你可能会发现端口用错了，或者节点绑错了IP地址等等。
 
 Indices部分
+    indices部分列出的是对于所有的索引在该节点上的汇总信息。
 
-indices部分列出的是对于所有的索引在该节点上的汇总信息。
-
-"indices": {
-"docs": {
-   "count": 6163666,
-   "deleted": 0
-},
-"store": {
-   "size_in_bytes": 2301398179,
-   "throttle_time_in_millis": 122850
-},
+        "indices": {
+        "docs": {
+           "count": 6163666,
+           "deleted": 0
+        },
+        "store": {
+           "size_in_bytes": 2301398179,
+           "throttle_time_in_millis": 122850
+        },
 
 它返回的统计信息可以分成这样几个部分：
 docs: 显示有多少文档在该节点，以及有多少删除的文档还没有从数据段中清除出去。
-store: 显示该节点消耗了多少物理存储，这个数据包含主分片和副分片，如果throttle_time_in_millis太大，说明你设置的磁盘流量太低（参考段的合并一章节）
+store: 显示该节点消耗了多少物理存储，这个数据包含主分片和副分片，
+如果throttle_time_in_millis太大，说明你设置的磁盘流量太低（参考段的合并一章节）
 
-"indexing": {
-   "index_total": 803441,
-   "index_time_in_millis": 367654,
-   "index_current": 99,
-   "delete_total": 0,
-   "delete_time_in_millis": 0,
-   "delete_current": 0
-},
-"get": {
-   "total": 6,
-   "time_in_millis": 2,
-   "exists_total": 5,
-   "exists_time_in_millis": 2,
-   "missing_total": 1,
-   "missing_time_in_millis": 0,
-   "current": 0
-},
-"search": {
-   "open_contexts": 0,
-   "query_total": 123,
-   "query_time_in_millis": 531,
-   "query_current": 0,
-   "fetch_total": 3,
-   "fetch_time_in_millis": 55,
-   "fetch_current": 0
-},
-"merges": {
-   "current": 0,
-   "current_docs": 0,
-   "current_size_in_bytes": 0,
-   "total": 1128,
-   "total_time_in_millis": 21338523,
-   "total_docs": 7241313,
-   "total_size_in_bytes": 5724869463
-},
+        "indexing": {
+           "index_total": 803441,
+           "index_time_in_millis": 367654,
+           "index_current": 99,
+           "delete_total": 0,
+           "delete_time_in_millis": 0,
+           "delete_current": 0
+        },
+        "get": {
+           "total": 6,
+           "time_in_millis": 2,
+           "exists_total": 5,
+           "exists_time_in_millis": 2,
+           "missing_total": 1,
+           "missing_time_in_millis": 0,
+           "current": 0
+        },
+        "search": {
+           "open_contexts": 0,
+           "query_total": 123,
+           "query_time_in_millis": 531,
+           "query_current": 0,
+           "fetch_total": 3,
+           "fetch_time_in_millis": 55,
+           "fetch_current": 0
+        },
+        "merges": {
+           "current": 0,
+           "current_docs": 0,
+           "current_size_in_bytes": 0,
+           "total": 1128,
+           "total_time_in_millis": 21338523,
+           "total_docs": 7241313,
+           "total_size_in_bytes": 5724869463
+        },
 
-indexing： 表示索引文档的次数，这个是通过一个计数器累加计数的。当文档被删除时，它不会减少。注意这个值永远是递增的，发生在内部索引数据的时候，包括那些更新操作。
+indexing： 表示索引文档的次数，这个是通过一个计数器累加计数的。
+    当文档被删除时，它不会减少。注意这个值永远是递增的，发生在内部索引数据的时候，包括那些更新操作。
 
-search：列出了主动检索的次数（open_contexts），查询总数，以及从节点启动到现在花在这些查询上的总时间。query_time_in_millis / query_total的比值可以作为你的查询效率的粗略指标。比值越大，每个查询用的时间越多，你就需要考虑调整或者优化。
+search：列出了主动检索的次数（open_contexts），查询总数，以及从节点启动到现在花在这些查询上的总时间。
+    query_time_in_millis / query_total的比值可以作为你的查询效率的粗略指标。
+    比值越大，每个查询用的时间越多，你就需要考虑调整或者优化。
 
-后面关于fetch的统计，是描述了查询的第二个过程（也就是query_the_fetch里的fetch)。fetch花的时间比query的越多，表示你的磁盘很慢，或者你要fetch的的文档太多。或者你的查询参数分页条件太大，（例如size等于1万）
+后面关于fetch的统计，是描述了查询的第二个过程（也就是query_the_fetch里的fetch)。
+    fetch花的时间比query的越多，表示你的磁盘很慢，或者你要fetch的的文档太多。
+    或者你的查询参数分页条件太大，（例如size等于1万）
 
 merges：包含lucene段合并的信息，它会告诉你有多少段合并正在进行，参与的文档数，这些正在合并的段的总大小，以及花在merge上的总时间。
-如果你的集群写入比较多，这个merge的统计信息就很重要。merge操作会消耗大量的磁盘io和cpu资源。如果你的索引写入很多，你会看到大量的merge操作，一低昂要阅读《关于索引数据性能方面的提示》这一章节。
+    如果你的集群写入比较多，这个merge的统计信息就很重要。
+    merge操作会消耗大量的磁盘io和cpu资源。
+    如果你的索引写入很多，你会看到大量的merge操作，一低昂要阅读《关于索引数据性能方面的提示》这一章节。
 
 注意：更新和删除都会导致大量的合并，因为它们会产生段碎片，这些都需要进行合并。
 
@@ -109,19 +120,32 @@ merges：包含lucene段合并的信息，它会告诉你有多少段合并正�
 },
 ...
 
-filter_cache：表示缓存的filter bitset所占的内存大小，以及一个filter缓存被淘汰的次数。大量的缓存淘汰预示着你可能需要增加你的filter缓存大小，或者你的filter不太适合缓存（例如，你的filter基数比较大，例如缓存当前时间的表达式。译注：意思就是你的filter基数很大，例如你的某个field是表示当前时间，你的filter肯定很大，缓存不容易利用上）
+filter_cache：表示缓存的filter bitset所占的内存大小，以及一个filter缓存被淘汰的次数。
+    大量的缓存淘汰预示着你可能需要增加你的filter缓存大小，或者你的filter不太适合缓存
+    （例如，你的filter基数比较大，例如缓存当前时间的表达式。
+    译注：意思就是你的filter基数很大，例如你的某个field是表示当前时间，你的filter肯定很大，缓存不容易利用上）
 
-但是淘汰是个很难度量的评价，filter 是被缓存到每个段（segement)上的，在一个小段上淘汰比在一个大段上淘汰容易一些。如果你有很多淘汰，但是都是发生在小的段上，那对查询的性能影响也不大。
+    但是淘汰是个很难度量的评价，filter 是被缓存到每个段（segement)上的，在一个小段上淘汰比在一个大段上淘汰容易一些。
+    如果你有很多淘汰，但是都是发生在小的段上，那对查询的性能影响也不大。
 
-把这个淘汰的统计作为一个粗略的指导，如果你看到大量的淘汰，就要调查下你的filter，确保它们是比较适合缓存的。如果filters不断的淘汰，即便是在小的段上，对性能还是有影响的，所以你最好使用适合缓存的filter
+    把这个淘汰的统计作为一个粗略的指导，如果你看到大量的淘汰，就要调查下你的filter，确保它们是比较适合缓存的。
+    如果filters不断的淘汰，即便是在小的段上，对性能还是有影响的，所以你最好使用适合缓存的filter
 
-id_cache：显示了父子mapping使用的内存，如果你使用了父子映射，id_cache就会在内存里位置一张链接表包含这种关系，这个统计告诉你多少内存正在使用。因为它和父子文档的个数有个明确的线性关系，所以对于这部分内存的使用，你可以做的事情很少，它是常驻内存的，所以你最好经常关注它。
+id_cache：显示了父子mapping使用的内存，如果你使用了父子映射，id_cache就会在内存里位置一张链接表包含这种关系，这个统计告诉你多少内存正在使用。
+    因为它和父子文档的个数有个明确的线性关系，所以对于这部分内存的使用，你可以做的事情很少，它是常驻内存的，所以你最好经常关注它。
 
-field_data：显示了fielddata使用的内存，fielddata用于聚合、排序等。这里也有一个淘汰数，不像filter_cache，这里的淘汰数很有用，它必须是0或者接近0，因为fielddata 不是缓存，任何淘汰的代价都是很大的，必须要避免的。如果你看到了淘汰，你必须重新评估你的内存情况，关于fielddata的限制，以及查询，或者三者全部。
+field_data：显示了fielddata使用的内存，fielddata用于聚合、排序等。
+    这里也有一个淘汰数，不像filter_cache，这里的淘汰数很有用，它必须是0或者接近0，
+    因为fielddata 不是缓存，任何淘汰的代价都是很大的，必须要避免的。
+    如果你看到了淘汰，你必须重新评估你的内存情况，关于fielddata的限制，以及查询，或者三者全部。
 
-segments：告诉你当前节点的lucene 段的个数，这可能是一个很重要的数字。大多数的索引应该在50到150个段左右，即便是几T大小的数十亿的文档。大量的段会带来合并的问题（例如：合并赶不上段的产生）。注意这个统计是对一个节点上所有的索引而言的，记住哟。
+segments：告诉你当前节点的lucene 段的个数，这可能是一个很重要的数字。
+    大多数的索引应该在50到150个段左右，即便是几T大小的数十亿的文档。
+    大量的段会带来合并的问题（例如：合并赶不上段的产生）。注意这个统计是对一个节点上所有的索引而言的，记住哟。
 
-其中内存的统计，可以告诉你Lucene的段自身需要多少内存。这里包括基础的数据结构，包括提交列表，词典，bloom过滤器等。段的数量多会增加承载这些数据结构的开销，这个内存的使用就是对这个开销的度量。
+    其中内存的统计，可以告诉你Lucene的段自身需要多少内存。
+    这里包括基础的数据结构，包括提交列表，词典，bloom过滤器等。
+    段的数量多会增加承载这些数据结构的开销，这个内存的使用就是对这个开销的度量。
 
 除非注明，赵岩的博客文章均为原创，转载请以链接形式标明本文地址
 本文地址：http://zhaoyanblog.com/archives/748.html
